@@ -24,17 +24,19 @@ jobs:
 
       - name: Create AI .env file
         run: |
-          echo "OPENAPI_URL=${{ secrets.OPENAPI_URL }}" > .env
-          echo "OPENAPI_KEY=${{ secrets.OPENAPI_KEY }}" >> .env
-          echo "OPEN_AI_KEY=${{ secrets.OPEN_AI_KEY }}" >> .env
-          echo "MONGO_DB_URL=${{ secrets.MONGO_DB_URL }}" >> .env
-          echo "SPREADSHEET_ID=${{ secrets.SPREADSHEET_ID }}" >> .env
-          echo "SPREADSHEET_JSON_KEY=${{ secrets.SPREADSHEET_JSON_KEY }}" >> .env
-          echo "HF_TOKEN=${{ secrets.HF_TOKEN }}" >> .env
-          echo "AI_EC2_HOST=${{ secrets.AI_EC2_HOST }}" >> .env
-          echo "AI_TLS_CRT=\"${{ secrets.AI_TLS_CRT }}\"" >> .env  # 줄바꿈 보존 주의
-          echo "AI_TLS_KEY=\"${{ secrets.AI_TLS_KEY }}\"" >> .env
-          echo "APP_ENV=production" >> .env
+          cat > .env << 'EOF'
+          OPENAPI_URL=${{ secrets.OPENAPI_URL }}
+          OPENAPI_KEY=${{ secrets.OPENAPI_KEY }}
+          OPEN_AI_KEY=${{ secrets.OPEN_AI_KEY }}
+          MONGO_DB_URL=${{ secrets.MONGO_DB_URL }}
+          SPREADSHEET_ID=${{ secrets.SPREADSHEET_ID }}
+          SPREADSHEET_JSON_KEY=${{ secrets.SPREADSHEET_JSON_KEY }}
+          HF_TOKEN=${{ secrets.HF_TOKEN }}
+          AI_EC2_HOST=${{ secrets.AI_EC2_HOST }}
+          AI_TLS_CRT="${{ secrets.AI_TLS_CRT }}"
+          AI_TLS_KEY="${{ secrets.AI_TLS_KEY }}"
+          APP_ENV=production
+          EOF
 
       - name: Upload AI directory to EC2
         uses: appleboy/scp-action@v0.1.3
