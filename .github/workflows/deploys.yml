@@ -2,9 +2,9 @@ name: AI CI/CD Pipeline
 
 on:
   push:
-    branches: ["develop"]
+    branches: ["main"]
     paths:
-      - 'ai/**'
+      - '**'
 
 jobs:
   deploy:
@@ -24,18 +24,17 @@ jobs:
 
       - name: Create AI .env file
         run: |
-          mkdir -p ai
-          echo "OPENAPI_URL=${{ secrets.OPENAPI_URL }}" > ai/.env
-          echo "OPENAPI_KEY=${{ secrets.OPENAPI_KEY }}" >> ai/.env
-          echo "OPEN_AI_KEY=${{ secrets.OPEN_AI_KEY }}" >> ai/.env
-          echo "MONGO_DB_URL=${{ secrets.MONGO_DB_URL }}" >> ai/.env
-          echo "SPREADSHEET_ID=${{ secrets.SPREADSHEET_ID }}" >> ai/.env
-          echo "SPREADSHEET_JSON_KEY=${{ secrets.SPREADSHEET_JSON_KEY }}" >> ai/.env
-          echo "HF_TOKEN=${{ secrets.HF_TOKEN }}" >> ai/.env
-          echo "AI_EC2_HOST=${{ secrets.AI_EC2_HOST }}" >> ai/.env
-          echo "AI_TLS_CRT=\"${{ secrets.AI_TLS_CRT }}\"" >> ai/.env  # 줄바꿈 보존 주의
-          echo "AI_TLS_KEY=\"${{ secrets.AI_TLS_KEY }}\"" >> ai/.env
-          echo "APP_ENV=production" >> ai/.env
+          echo "OPENAPI_URL=${{ secrets.OPENAPI_URL }}" > .env
+          echo "OPENAPI_KEY=${{ secrets.OPENAPI_KEY }}" >> .env
+          echo "OPEN_AI_KEY=${{ secrets.OPEN_AI_KEY }}" >> .env
+          echo "MONGO_DB_URL=${{ secrets.MONGO_DB_URL }}" >> .env
+          echo "SPREADSHEET_ID=${{ secrets.SPREADSHEET_ID }}" >> .env
+          echo "SPREADSHEET_JSON_KEY=${{ secrets.SPREADSHEET_JSON_KEY }}" >> .env
+          echo "HF_TOKEN=${{ secrets.HF_TOKEN }}" >> .env
+          echo "AI_EC2_HOST=${{ secrets.AI_EC2_HOST }}" >> .env
+          echo "AI_TLS_CRT=\"${{ secrets.AI_TLS_CRT }}\"" >> .env  # 줄바꿈 보존 주의
+          echo "AI_TLS_KEY=\"${{ secrets.AI_TLS_KEY }}\"" >> .env
+          echo "APP_ENV=production" >> .env
 
       - name: Upload AI directory to EC2
         uses: appleboy/scp-action@v0.1.3
@@ -43,7 +42,7 @@ jobs:
           host: ${{ secrets.AI_EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.AI_EC2_SSH_KEY }}
-          source: "ai"
+          source: "./"
           target: "/home/ubuntu"
 
       - name: Deploy to EC2
@@ -53,6 +52,6 @@ jobs:
           username: ubuntu
           key: ${{ secrets.AI_EC2_SSH_KEY }}
           script: |
-            cd /home/ubuntu/ai
+            cd /home/ubuntu
             docker-compose down -v   
             docker-compose up -d --build 
