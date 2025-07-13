@@ -387,93 +387,6 @@ def find_missing_uploaded_files():
 
 # find_missing_uploaded_files()
 
-def reregister_sign_language_urls():
-    creds = Credentials.from_service_account_file(json_key_file, scopes=[
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive"
-    ])
-    gc = gspread.authorize(creds)
-    spreadsheet_id = os.getenv("SPREADSHEET_ID")
-    folder_id = "1ChqG-GqfKEFwddkq5x3SeLqMNUIa-UYc"
-
-    spreadsheet = gc.open_by_key(spreadsheet_id)
-    sheet = spreadsheet.get_worksheet_by_id(859465925)  
-
-    drive_service = build('drive', 'v3', credentials=creds)
-
-    query = f"'{folder_id}' in parents"
-    files = []
-    page_token = None
-    while True:
-        response = drive_service.files().list(
-            q=query,
-            fields="nextPageToken, files(id, name)",
-            pageToken=page_token
-        ).execute()
-        files.extend(response.get('files', []))
-        page_token = response.get('nextPageToken', None)
-        if page_token is None:
-            break
-
-    data = [['name', 'url']]
-    for file in files:
-        file_id = file['id']
-        name = os.path.splitext(file['name'])[0] 
-
-        drive_service.permissions().create(
-            fileId=file_id,
-            body={'type': 'anyone', 'role': 'reader'},
-            fields='id'
-        ).execute()
-
-        share_url = f"https://drive.google.com/file/d/{file_id}/view?usp=sharing"
-        data.append([name, share_url])
-        print(f"{name} → {share_url}")
-
-    sheet.clear()
-    sheet.update("A1", data)
-
-    print("✅ .mp4 제거 완료 후 시트에 공유 링크 저장됨")
-
-def reregister_sign_language_urls():
-    creds = Credentials.from_service_account_file(json_key_file, scopes=[
-        "https://www.googleapis.com/auth/spreadsheets"
-    ])
-    gc = gspread.authorize(creds)
-    spreadsheet_id = os.getenv("SPREADSHEET_ID")
-    sheet = gc.open_by_key(spreadsheet_id).get_worksheet_by_id(859465925)
-
-    # S3 정보
-    s3_bucket = os.getenv("S3_BUCKET_NAME") 
-    s3_prefix = ""
-    s3 = boto3.client("s3", region_name="ap-northeast-2") 
-
-    base_url = f"https://{s3_bucket}.s3.ap-northeast-2.amazonaws.com"
-
-    response = s3.list_objects_v2(Bucket=s3_bucket, Prefix=s3_prefix)
-    objects = response.get("Contents", [])
-
-    data = [['name', 'url']]
-    for obj in objects:
-        key = obj["Key"]
-        if key.endswith("/"):
-            continue
-        filename = os.path.basename(key)
-        name = os.path.splitext(filename)[0]
-
-        encoded_key = urllib.parse.quote(key)
-        object_url = f"{base_url}/{encoded_key}"
-
-        data.append([name, object_url])
-        print(f"{name} → {object_url}")
-
-    sheet.clear()
-    sheet.update("A1", data)
-    print("✅ 서울 리전 기반 URL을 퍼센트 인코딩 후 시트에 저장 완료")
-
-# reregister_sign_language_urls()
-
-
 def register_avatar_sign_language_words():
     sign_language_collection = db["avatar_sign_language"]
 
@@ -486,7 +399,7 @@ def register_avatar_sign_language_words():
 
     spreadsheet = gc.open_by_key(spreadsheet_id)
     # sheet = spreadsheet.get_worksheet(1)
-    sheet = spreadsheet.worksheet("아바타시트") 
+    sheet = spreadsheet.worksheet("경진대회용 시트") 
 
     data = sheet.get_all_records()
     sign_language_collection.insert_many(data)
@@ -495,6 +408,91 @@ def register_avatar_sign_language_words():
 
 # register_avatar_sign_language_words()
 
+# def reregister_sign_language_urls():
+#     creds = Credentials.from_service_account_file(json_key_file, scopes=[
+#         "https://www.googleapis.com/auth/spreadsheets",
+#         "https://www.googleapis.com/auth/drive"
+#     ])
+#     gc = gspread.authorize(creds)
+#     spreadsheet_id = os.getenv("SPREADSHEET_ID")
+#     folder_id = "1ChqG-GqfKEFwddkq5x3SeLqMNUIa-UYc"
+
+#     spreadsheet = gc.open_by_key(spreadsheet_id)
+#     sheet = spreadsheet.get_worksheet_by_id(859465925)  
+
+#     drive_service = build('drive', 'v3', credentials=creds)
+
+#     query = f"'{folder_id}' in parents"
+#     files = []
+#     page_token = None
+#     while True:
+#         response = drive_service.files().list(
+#             q=query,
+#             fields="nextPageToken, files(id, name)",
+#             pageToken=page_token
+#         ).execute()
+#         files.extend(response.get('files', []))
+#         page_token = response.get('nextPageToken', None)
+#         if page_token is None:
+#             break
+
+#     data = [['name', 'url']]
+#     for file in files:
+#         file_id = file['id']
+#         name = os.path.splitext(file['name'])[0] 
+
+#         drive_service.permissions().create(
+#             fileId=file_id,
+#             body={'type': 'anyone', 'role': 'reader'},
+#             fields='id'
+#         ).execute()
+
+#         share_url = f"https://drive.google.com/file/d/{file_id}/view?usp=sharing"
+#         data.append([name, share_url])
+#         print(f"{name} → {share_url}")
+
+#     sheet.clear()
+#     sheet.update("A1", data)
+
+#     print("✅ .mp4 제거 완료 후 시트에 공유 링크 저장됨")
+
+# def reregister_sign_language_urls():
+#     creds = Credentials.from_service_account_file(json_key_file, scopes=[
+#         "https://www.googleapis.com/auth/spreadsheets"
+#     ])
+#     gc = gspread.authorize(creds)
+#     spreadsheet_id = os.getenv("SPREADSHEET_ID")
+#     sheet = gc.open_by_key(spreadsheet_id).get_worksheet_by_id(859465925)
+
+#     # S3 정보
+#     s3_bucket = os.getenv("S3_BUCKET_NAME") 
+#     s3_prefix = ""
+#     s3 = boto3.client("s3", region_name="ap-northeast-2") 
+
+#     base_url = f"https://{s3_bucket}.s3.ap-northeast-2.amazonaws.com"
+
+#     response = s3.list_objects_v2(Bucket=s3_bucket, Prefix=s3_prefix)
+#     objects = response.get("Contents", [])
+
+#     data = [['name', 'url']]
+#     for obj in objects:
+#         key = obj["Key"]
+#         if key.endswith("/"):
+#             continue
+#         filename = os.path.basename(key)
+#         name = os.path.splitext(filename)[0]
+
+#         encoded_key = urllib.parse.quote(key)
+#         object_url = f"{base_url}/{encoded_key}"
+
+#         data.append([name, object_url])
+#         print(f"{name} → {object_url}")
+
+#     sheet.clear()
+#     sheet.update("A1", data)
+#     print("✅ 서울 리전 기반 URL을 퍼센트 인코딩 후 시트에 저장 완료")
+
+# reregister_sign_language_urls()
 
 def get_sign_language_url_list(menu):
     menu_collection = db["menu"]
