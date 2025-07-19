@@ -19,8 +19,7 @@ def run():
     stub = all_predict_sign_pb2_grpc.SignAIStub(channel)
 
     request = all_predict_sign_pb2.KoreanInput(
-        # message="지금은 자리가 꽉차서 조금 기다려주셔야 합니다.",
-        message="나이프 더 주세요",
+        message="지금은 자리가 꽉차서 기다려주셔야 합니다.",
         store_id="store_01"
     )
 

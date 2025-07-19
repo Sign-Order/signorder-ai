@@ -1,6 +1,9 @@
 import os
 from dotenv import load_dotenv
 import json
+import warnings
+from langchain_core.caches import BaseCache
+from langchain_core.callbacks.base import Callbacks
 from langchain_openai import ChatOpenAI
 from langchain_community.document_loaders import PyMuPDFLoader
 from langchain.text_splitter import CharacterTextSplitter
@@ -13,7 +16,9 @@ from langchain_core.runnables import RunnablePassthrough
 
 load_dotenv()
 api_key = os.getenv("OPEN_AI_KEY")
+ChatOpenAI.model_rebuild()
 embeddings = OpenAIEmbeddings(model="text-embedding-ada-002", api_key=api_key)
+warnings.filterwarnings("ignore", message="Warning: Empty content on page")
 
 env = os.getenv('APP_ENV', 'local')
 
@@ -85,7 +90,6 @@ class DebugPassThrough(RunnablePassthrough):
 class ContextToText(RunnablePassthrough):
     def invoke(self, inputs, config=None, **kwargs):
         context_text = "\n".join([f"Page {doc.metadata.get('page', 'Unknown')}: {doc.page_content}" for doc in inputs["context"]])
-        # print(context_text)
         return {"context": context_text, "question": inputs["question"]}
 
 def get_retriever():
@@ -132,4 +136,3 @@ def get_translate_from_sign_language(text):
     response = rag_chain_debug.invoke(text)
 
     return response.content
-    return text

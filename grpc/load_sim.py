@@ -3,7 +3,6 @@ from sentence_transformers import SentenceTransformer, util
 import os
 import json
 from dotenv import load_dotenv
-from concurrent.futures import ThreadPoolExecutor
 
 load_dotenv()
 HF_TOKEN = os.getenv("HF_TOKEN")
@@ -63,8 +62,3 @@ def get_most_similar_word(word):
     most_similar = candidates[0]
     print(f"유사한 단어 : {most_similar[0]}, 유사도 : {most_similar[1]}")
     return most_similar[0]
-
-
-
-# similar_words = get_most_similar_from_actions("설탕")
-# print(similar_words)

@@ -34,40 +34,92 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.layers import MultiHeadAttention, GlobalAveragePooling1D
 
 
+"""
+Transformer 계열로 수정했을 때 라이브러리들
+"""
+from tensorflow.keras.layers import Input, Dense, Dropout, LayerNormalization, Add
+from tensorflow.keras.layers import MultiHeadAttention, GlobalAveragePooling1D, Masking
+from tensorflow.keras.models import Model
+from tensorflow.keras.regularizers import l2
+
 
 load_dotenv()
 mongo_db_url = os.getenv("MONGO_DB_URL")
 client = MongoClient(mongo_db_url)
 db = client["dev"]
 
-sign_language_collection = db["sign_language"]
-name_url_dict = {
-    doc["name"]: doc["url"]
-    for doc in sign_language_collection.find({}, {"_id": 0, "name": 1, "url": 1})
-}
+# sign_language_collection = db["sign_language"]
+# name_url_dict = {
+#     doc["name"]: doc["url"]
+#     for doc in sign_language_collection.find({}, {"_id": 0, "name": 1, "url": 1})
+# }
 
+
+# DATA_PATH = "custom_dataset_2"
+# data_list = []
+# gesture = {}
+# label_index = 0
+
+# for action in name_url_dict.keys():
+#     file_path = os.path.join(DATA_PATH, f"{action}.npy")
+#     if not os.path.exists(file_path):
+#         print(f"⚠️ 데이터 누락: {action} - {file_path} 없음")
+#         continue
+
+#     seq_data = np.load(file_path)
+#     if seq_data.ndim != 3 or seq_data.shape[0] == 0:
+#         print(f"⚠️ 유효하지 않은 시퀀스: {action} - shape: {seq_data.shape}")
+#         continue
+
+#     seq_data[:, :, -1] = label_index
+#     gesture[label_index] = action  
+#     label_index += 1
+
+#     data_list.append(seq_data)
 
 DATA_PATH = "angles"
 data_list = []
 gesture = {}
 label_index = 0
 
-for action in name_url_dict.keys():
+npy_files = [f for f in os.listdir(DATA_PATH) if f.endswith('.npy')]
+# if not npy_files:
+#     raise ValueError(f"❌ {DATA_PATH} 디렉터리에 .npy 파일이 없습니다.")
+
+# for filename in sorted(npy_files): 
+#     action = os.path.splitext(filename)[0]
+#     file_path = os.path.join(DATA_PATH, filename)
+
+#     seq_data = np.load(file_path)
+#     if seq_data.ndim != 3 or seq_data.shape[0] == 0:
+#         print(f"⚠️ 유효하지 않은 시퀀스: {action} - shape: {seq_data.shape}")
+#         continue
+
+#     seq_data[:, :, -1] = label_index
+#     gesture[label_index] = action  
+#     label_index += 1
+
+#     data_list.append(seq_data)
+gesture_list = sorted([os.path.splitext(f)[0] for f in npy_files])  # 알파벳순 고정
+
+gesture = {i: name for i, name in enumerate(gesture_list)}  # 라벨 고정
+reverse_gesture = {v: k for k, v in gesture.items()}
+
+for action in gesture_list:
     file_path = os.path.join(DATA_PATH, f"{action}.npy")
-    if not os.path.exists(file_path):
-        print(f"⚠️ 데이터 누락: {action} - {file_path} 없음")
-        continue
-
     seq_data = np.load(file_path)
-    if seq_data.ndim != 3 or seq_data.shape[0] == 0:
-        print(f"⚠️ 유효하지 않은 시퀀스: {action} - shape: {seq_data.shape}")
-        continue
-
-    seq_data[:, :, -1] = label_index
-    gesture[label_index] = action  
-    label_index += 1
-
+    seq_data[:, :, -1] = reverse_gesture[action]  # 항상 일치
     data_list.append(seq_data)
+
+
+if not data_list:
+    raise ValueError("❌ 불러온 데이터가 없습니다. 모델 학습 불가")
+
+data = np.concatenate(data_list, axis=0)
+print(f"✅ 총 데이터 샘플 수: {data.shape[0]}, 시퀀스 길이: {data.shape[1]}, 피처 수: {data.shape[2]}")
+
+x_data = data[:, :, :-1]
+labels = data[:, 0, -1].astype(int)
 
 if not data_list:
     raise ValueError("불러온 데이터가 없습니다. 모델 학습 불가")
@@ -80,29 +132,6 @@ y_data = to_categorical(labels, num_classes=len(gesture))
 x_train, x_val, y_train, y_val = train_test_split(
     x_data, y_data, test_size=0.1, random_state=2021
 )
-
-# def augment_sequence(seq, jitter_prob=0.3, noise_std=0.01, angle_perturb_range=2.0):
-#     augmented = seq.copy()
-
-#     # 1. ⏱️ Temporal jitter: 순서를 약간 섞음
-#     if random.random() < jitter_prob:
-#         idx = np.arange(len(augmented))
-#         jitter = np.clip(np.random.normal(0, 1, size=len(idx)), -2, 2).astype(int)
-#         jittered_idx = np.clip(idx + jitter, 0, len(idx) - 1)
-#         augmented = augmented[jittered_idx]
-
-#     # 2. 🌫️ Joint 좌표에 noise 추가
-#     joint_dim = 21 * 3  # 63
-#     augmented[:, :joint_dim] += np.random.normal(0, noise_std, size=(augmented.shape[0], joint_dim))
-
-#     # 3. 🔄 각도 값에 ±1~2도 perturbation
-#     angle_dim = 15
-#     angle_start = joint_dim
-#     angle_end = joint_dim + angle_dim
-#     perturb = np.random.uniform(-angle_perturb_range, angle_perturb_range, size=(augmented.shape[0], angle_dim))
-#     augmented[:, angle_start:angle_end] += perturb
-
-#     return augmented
 
 def augment_sequence(seq, jitter_prob=0.3, noise_std=0.01, angle_perturb_range=2.0,
                      stretch_prob=0.3, brightness_std=0.05):
@@ -186,55 +215,93 @@ class Attention(Layer):
         return tf.keras.backend.sum(output, axis=1)
 
 
-inputs = Input(shape=x_train.shape[1:])
-x = Masking(mask_value=0.0)(inputs)
-x = LSTM(128, return_sequences=True, kernel_regularizer=l2(0.001))(x)
-x = LayerNormalization()(x) 
-x = LSTM(64, return_sequences=True)(x)
-x = LayerNormalization()(x)
-x = Attention()(x)
-x = Dense(64, activation='relu')(x)
-x = Dropout(0.5)(x)
-outputs = Dense(len(gesture), activation='softmax')(x)
-
 # inputs = Input(shape=x_train.shape[1:])
 # x = Masking(mask_value=0.0)(inputs)
 # x = LSTM(128, return_sequences=True, kernel_regularizer=l2(0.001))(x)
-# x = BatchNormalization()(x)
-# x = LSTM(64, return_sequences=True)(x)  
-# x = BatchNormalization()(x)
-# x = Attention()(x)  
-# x = Dense(64, activation='relu')(x)
-# x = Dropout(0.5)(x)
-# outputs = Dense(len(gesture), activation='softmax')(x)
-
-model = Model(inputs, outputs)
-
-# inputs = Input(shape=x_train.shape[1:])  # (seq_len, feature_dim)
-
-# # CNN block (1D convolution over time)
-# x = Conv1D(64, kernel_size=3, padding='same', activation='relu')(inputs)
-# x = BatchNormalization()(x)
-# x = Conv1D(128, kernel_size=3, padding='same', activation='relu')(x)
-# x = BatchNormalization()(x)
-
-# # LSTM block
-# x = LSTM(128, return_sequences=True)(x)
+# x = LayerNormalization()(x) 
 # x = LSTM(64, return_sequences=True)(x)
+# x = LayerNormalization()(x)
 # x = Attention()(x)
-
-# # Dense layers
 # x = Dense(64, activation='relu')(x)
 # x = Dropout(0.5)(x)
 # outputs = Dense(len(gesture), activation='softmax')(x)
 
 # model = Model(inputs, outputs)
 
+# model.compile(
+#     optimizer='adam',
+#     loss='categorical_crossentropy',
+#     metrics=['acc']
+# )
+
+class PositionalEncoding(Layer):
+    def __init__(self, max_len, d_model):
+        super().__init__()
+        self.pos_encoding = self.get_positional_encoding(max_len, d_model)
+
+    def get_positional_encoding(self, max_len, d_model):
+        pos = np.arange(max_len)[:, np.newaxis]
+        i = np.arange(d_model)[np.newaxis, :]
+        angle_rates = 1 / np.power(10000, (2 * (i // 2)) / np.float32(d_model))
+        angle_rads = pos * angle_rates
+
+        angle_rads[:, 0::2] = np.sin(angle_rads[:, 0::2])
+        angle_rads[:, 1::2] = np.cos(angle_rads[:, 1::2])
+
+        pos_encoding = angle_rads[np.newaxis, ...]
+        return tf.cast(pos_encoding, dtype=tf.float32)
+
+    def call(self, inputs):
+        return inputs + self.pos_encoding[:, :tf.shape(inputs)[1], :]
+
+def transformer_encoder(inputs, num_heads=4, ff_dim=128, dropout_rate=0.1):
+    attn_output = MultiHeadAttention(num_heads=num_heads, key_dim=inputs.shape[-1]//num_heads)(inputs, inputs)
+    attn_output = Dropout(dropout_rate)(attn_output)
+    out1 = Add()([inputs, attn_output])
+    out1 = LayerNormalization()(out1)
+
+    ffn = Dense(ff_dim, activation='relu')(out1)
+    ffn = Dropout(dropout_rate)(ffn)
+    ffn = Dense(inputs.shape[-1])(ffn)
+    out2 = Add()([out1, ffn])
+    out2 = LayerNormalization()(out2)
+    return out2
+
+
+def build_sign_transformer(input_shape, num_classes, depth=4, num_heads=4, ff_dim=128):
+    inputs = Input(shape=input_shape)  # (seq_len, num_features)
+    x = Masking()(inputs)
+    x = Dense(128)(x)  # 임베딩 차원 고정
+
+    x = PositionalEncoding(max_len=input_shape[0], d_model=128)(x)
+
+    for _ in range(depth):
+        x = transformer_encoder(x, num_heads=num_heads, ff_dim=ff_dim)
+
+    x = GlobalAveragePooling1D()(x)
+    x = Dense(128, activation='relu')(x)
+    x = Dropout(0.5)(x)
+    outputs = Dense(num_classes, activation='softmax')(x)
+
+    model = Model(inputs, outputs)
+    return model
+
+
+model = build_sign_transformer(
+    input_shape=x_train.shape[1:],  # (60, num_features)
+    num_classes=len(gesture),
+    depth=4,
+    num_heads=4,
+    ff_dim=128
+)
+
 model.compile(
     optimizer='adam',
-    loss='categorical_crossentropy',
-    metrics=['acc']
+    loss='sparse_categorical_crossentropy',  # if labels are int
+    metrics=['accuracy']
 )
+
+model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['acc'])
 model.summary()
 
 weights = compute_class_weight('balanced', classes=np.unique(labels), y=labels)
@@ -245,7 +312,7 @@ history = model.fit(
     validation_data=(x_val, y_val),
     epochs=200,
     callbacks=[
-        ModelCheckpoint('60_v8_masked_angles.keras', monitor='val_acc', verbose=1, save_best_only=True, mode='auto'),
+        ModelCheckpoint('60_v27_masked_angles.keras', monitor='val_acc', verbose=1, save_best_only=True, mode='auto'),
         ReduceLROnPlateau(monitor='val_acc', factor=0.5, patience=50, verbose=1, mode='auto')
     ],
     class_weight=class_weights
@@ -279,9 +346,9 @@ plt.title('Model Training History')
 plt.grid(True)
 plt.show()
 
-model.save('60_v8_masked_angles.keras')
-print("✅ 모델 저장 완료: 60_v8_masked_angles.keras")
+model.save('60_v27_masked_angles.keras')
+print("✅ 모델 저장 완료: 60_v27_masked_angles.keras")
 
-with open('60_v8_pad_gesture_dict.json', 'w', encoding='utf-8') as f:
+with open('60_v27_pad_gesture_dict.json', 'w', encoding='utf-8') as f:
     json.dump(gesture, f, ensure_ascii=False, indent=2)
-print("✅ 제스처 라벨 딕셔너리 저장 완료: 60_v8_pad_gesture_dict.json")
+print("✅ 제스처 라벨 딕셔너리 저장 완료: 60_v27_pad_gesture_dict.json")
