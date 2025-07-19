@@ -12,7 +12,7 @@ RUN pip install --upgrade pip
 RUN pip install torch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0 \
     -f https://download.pytorch.org/whl/cpu/torch_stable.html
 
-RUN pip install --no-cache-dir --upgrade --no-deps -r requirements.txt
+RUN pip install --no-cache-dir --upgrade --no-deps -r docker_requirements.txt
 
 RUN apt-get update && apt-get install -y libgl1
 
