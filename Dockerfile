@@ -21,4 +21,4 @@ EXPOSE 50051
 
 WORKDIR /app/grpc
 
-CMD ["python", "-u", "all_predict_sign_server.py"]
+CMD ["python", "-u", "grpc/all_predict_sign_server.py"]
