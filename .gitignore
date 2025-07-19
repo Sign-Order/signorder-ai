@@ -5,6 +5,7 @@ holistic_dataset/
 hands_dataset
 hands_dataset/
 .env
+.newenv
 affable-beach-453501-k9-12086968563e.json
 affable-beach-453501-k9-7ffcc2b2efdf.json
 keypoints

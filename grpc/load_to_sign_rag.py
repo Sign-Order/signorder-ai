@@ -1,6 +1,7 @@
 import os
 from dotenv import load_dotenv
 import json
+import warnings
 from langchain_openai import ChatOpenAI
 from langchain_community.document_loaders import PyMuPDFLoader
 from langchain.text_splitter import CharacterTextSplitter
@@ -22,6 +23,7 @@ api_key = os.getenv("OPEN_AI_KEY")
 env = os.getenv('APP_ENV', 'local')
 
 embeddings = OpenAIEmbeddings(model="text-embedding-ada-002", api_key=api_key)
+warnings.filterwarnings("ignore", message="Warning: Empty content on page")
 
 if env == 'production':
     loader = PyMuPDFLoader("docs/한국수어문법.pdf")
@@ -183,10 +185,10 @@ def get_sign_language_url_list(inqury):
         for match in potential_matches:
             if match["name"].strip().lower() == inqury.strip().lower():
                 print("🎯 원문 정확 일치:", match["name"])
-                return [match["url"]]
+                return [match["avatarurl"]]
         
         print("🔎 부분 일치 사용:", potential_matches[0]["name"])
-        return [potential_matches[0]["url"]]
+        return [potential_matches[0]["avatarurl"]]
 
     sign_language_inqury = get_translate_to_sign_language(inqury)
     print(f"✨ 한국 수어 문법 문장 : {sign_language_inqury}")
@@ -196,7 +198,7 @@ def get_sign_language_url_list(inqury):
     recombined_match = sign_language_collection.find_one({"name": {"$regex": f"^{recombined_word}$", "$options": "i"}})
     if recombined_match:
         print("🔁 변환된 단어 조합으로 매칭 성공:", recombined_word)
-        return [recombined_match["url"]]
+        return [recombined_match["avatarurl"]]
 
     sign_data_list = list(sign_language_collection.find({"name": {"$regex": "|".join(words), "$options": "i"}}))
     sign_data_map = {item['name']: item for item in sign_data_list} 
@@ -205,19 +207,14 @@ def get_sign_language_url_list(inqury):
 
     for word in words:
         if word in sign_data_map:
-            url_list.append(sign_data_map[word]["url"])
+            url_list.append(sign_data_map[word]["avatarurl"])
         else:
             print(f"👮 데이터 셋에 없는 단어입니다! {word}")
             similar_word = load_sim.get_most_similar_word(word)
             if similar_word != "":
                 print(f"유사한 단어는 찾았습니다: {similar_word}")
                 similar_data = sign_language_collection.find_one({"name": {"$regex": similar_word}})
-                if similar_data and "url" in similar_data:
-                    url_list.append(similar_data["url"])
+                if similar_data and "avatarurl" in similar_data:
+                    url_list.append(similar_data["avatarurl"])
 
     return url_list
-
-# urls = get_sign_language_url_list("저는 직원입니다")
-# print("\n📦 전체 URL 리스트:")
-# for i, url in enumerate(urls, 1):
-#     print(f"{i}. {url}")

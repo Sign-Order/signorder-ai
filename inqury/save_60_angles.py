@@ -10,30 +10,53 @@ load_dotenv()
 mongo_db_url = os.getenv("MONGO_DB_URL")
 json_key_file = os.getenv("SPREADSHEET_JSON_KEY")
 
-client = MongoClient(mongo_db_url)
-db = client["dev"]
-sign_language_collection = db["sign_language"]
-
-
-name_url_dict = {
-    doc["name"]: doc["url"]
-    for doc in sign_language_collection.find({}, {"_id": 0, "name": 1, "url": 1})
-}
-
 DATA_PATH = "angles"
-mp_hands=mp.solutions.hands
-
-"""
-두 손의 angles로 학습용 데이터를 사용할 때
-"""
+VIDEO_PATH = "custom_dataset_2"
 seq_length = 60
-os.makedirs('angles', exist_ok=True)
 
-for action, url in name_url_dict.items():
-    cap = cv2.VideoCapture(url)
+os.makedirs(DATA_PATH, exist_ok=True)
+mp_hands = mp.solutions.hands
+
+video_files = [f for f in os.listdir(VIDEO_PATH) if f.endswith(('.mp4', '.avi', '.mov'))]
+
+if not video_files:
+    raise ValueError("❌ 비디오 데이터가 없습니다. 'video_dataset' 디렉터리를 확인하세요.")
+
+for filename in sorted(video_files):
+    action = os.path.splitext(filename)[0]
+    video_path = os.path.join(VIDEO_PATH, filename)
+
+    cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
-        print(f"비디오 열기 오류: {url}")
+        print(f"❌ 비디오 열기 오류: {video_path}")
         continue
+
+# 과거 db 로부터 영상 추출 방식 시 사용했던 코드 (현재 사용 X)
+
+# client = MongoClient(mongo_db_url)
+# db = client["dev"]
+# sign_language_collection = db["sign_language"]
+
+
+# name_url_dict = {
+#     doc["name"]: doc["url"]
+#     for doc in sign_language_collection.find({}, {"_id": 0, "name": 1, "url": 1})
+# }
+
+# DATA_PATH = "angles"
+# mp_hands=mp.solutions.hands
+
+# """
+# 두 손의 angles로 학습용 데이터를 사용할 때
+# """
+# seq_length = 60
+# os.makedirs('angles', exist_ok=True)
+
+# for action, url in name_url_dict.items():
+#     cap = cv2.VideoCapture(url)
+#     if not cap.isOpened():
+#         print(f"비디오 열기 오류: {url}")
+#         continue
 
     fps = cap.get(cv2.CAP_PROP_FPS)
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -45,7 +68,7 @@ for action, url in name_url_dict.items():
     print(f"총 재생 시간: {duration:.2f}초")
 
     if total_frames < seq_length:
-        print(f"⚠️ 비디오 프레임 수 부족 ({seq_length}프레임 미만): {url}")
+        print(f"⚠️ 비디오 프레임 수 부족 ({seq_length}프레임 미만): {filename}")
         cap.release()
         continue
 
@@ -249,21 +272,21 @@ for action, url in name_url_dict.items():
 - 안녕하세요,안녕히 가십시오
 - 포크
 """
-saved_actions = set([
-    os.path.splitext(f)[0] for f in os.listdir(DATA_PATH)
-    if f.endswith('.npy')
-])
+# saved_actions = set([
+#     os.path.splitext(f)[0] for f in os.listdir(DATA_PATH)
+#     if f.endswith('.npy')
+# ])
 
-expected_actions = set(name_url_dict.keys())
+# expected_actions = set(name_url_dict.keys())
 
-missing_actions = expected_actions - saved_actions
+# missing_actions = expected_actions - saved_actions
 
-if missing_actions:
-    print("❗누락된 동작이 있습니다:")
-    for action in sorted(missing_actions):
-        print("-", action)
-else:
-    print("✅ 모든 동작이 저장되어 있습니다!")
+# if missing_actions:
+#     print("❗누락된 동작이 있습니다:")
+#     for action in sorted(missing_actions):
+#         print("-", action)
+# else:
+#     print("✅ 모든 동작이 저장되어 있습니다!")
 
 
 
