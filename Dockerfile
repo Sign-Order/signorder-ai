@@ -19,6 +19,4 @@ RUN apt-get update && apt-get install -y libgl1
 COPY . .
 EXPOSE 50051
 
-WORKDIR /app/grpc
-
 CMD ["python", "-u", "grpc/all_predict_sign_server.py"]
