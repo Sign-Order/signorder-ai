@@ -5,7 +5,7 @@ WORKDIR /app
 RUN python -m venv /env
 ENV PATH="/env/bin:$PATH"
 
-COPY requirements.txt .
+COPY docker_requirements.txt .
 RUN pip install --upgrade pip
 
 # torch CPU 버전 따로 설치
