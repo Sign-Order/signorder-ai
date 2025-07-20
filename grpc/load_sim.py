@@ -60,5 +60,4 @@ def get_most_similar_word(word):
         return ""
     
     most_similar = candidates[0]
-    print(f"유사한 단어 : {most_similar[0]}, 유사도 : {most_similar[1]}")
     return most_similar[0]
