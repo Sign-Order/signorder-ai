@@ -27,7 +27,7 @@ else :
 
 stub = all_predict_sign_pb2_grpc.SignAIStub(channel)
 
-video_path = "화2.mp4"
+video_path = "화장실 비밀번호를 잃어버렸다.mp4"
 
 cap = cv2.VideoCapture(video_path)
 if not cap.isOpened():

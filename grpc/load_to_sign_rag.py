@@ -209,10 +209,8 @@ def get_sign_language_url_list(inqury):
         if word in sign_data_map:
             url_list.append(sign_data_map[word]["avatarurl"])
         else:
-            print(f"👮 데이터 셋에 없는 단어입니다! {word}")
             similar_word = load_sim.get_most_similar_word(word)
             if similar_word != "":
-                print(f"유사한 단어는 찾았습니다: {similar_word}")
                 similar_data = sign_language_collection.find_one({"name": {"$regex": similar_word}})
                 if similar_data and "avatarurl" in similar_data:
                     url_list.append(similar_data["avatarurl"])
