@@ -175,8 +175,9 @@ class SignAIService(all_predict_sign_pb2_grpc.SignAIServicer):
         )
 
 def load_tls_credentials():
-    certificate_chain = os.environ['AI_TLS_CRT'].encode('utf-8')
-    private_key = os.environ['AI_TLS_KEY'].encode('utf-8')
+    private_key = os.environ['AI_TLS_KEY'].replace('\\n', '\n').encode('utf-8')
+    certificate_chain = os.environ['AI_TLS_CRT'].replace('\\n', '\n').encode('utf-8')
+
 
     return grpc.ssl_server_credentials(
         [(private_key, certificate_chain)],

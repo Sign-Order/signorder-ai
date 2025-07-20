@@ -8,7 +8,7 @@ import time
 load_dotenv()
 host = os.getenv("AI_EC2_HOST")
 env = os.getenv('APP_ENV', 'local')
-trusted_certs = os.environ['AI_TLS_CRT'].encode('utf-8')
+trusted_certs = os.environ['AI_TLS_CRT'].replace('\\n', '\n').encode('utf-8')
 
 def run():
     if env == 'production':

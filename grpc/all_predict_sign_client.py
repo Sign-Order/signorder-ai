@@ -12,7 +12,7 @@ import os
 load_dotenv()
 host = os.getenv("AI_EC2_HOST")
 env = os.getenv('APP_ENV', 'local')
-trusted_certs = os.environ['AI_TLS_CRT'].encode('utf-8')
+trusted_certs = os.environ['AI_TLS_CRT'].replace('\\n', '\n').encode('utf-8')
 credentials = grpc.ssl_channel_credentials(root_certificates=trusted_certs)
 
 if env == 'production':
