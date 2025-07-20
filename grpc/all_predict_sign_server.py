@@ -191,13 +191,14 @@ def serve():
                                       ('grpc.max_receive_message_length', 10 * 1024 * 1024)])
         all_predict_sign_pb2_grpc.add_SignAIServicer_to_server(SignAIService(), server)
         
-        if env == "production":
-            creds = load_tls_credentials()
-            print("✅ TLS 인증서 로드 성공")
-            port_result = server.add_secure_port('[::]:50051', creds)
-        else:
-            port_result = server.add_insecure_port('[::]:50051')
+        # if env == "production":
+        #     creds = load_tls_credentials()
+        #     print("✅ TLS 인증서 로드 성공")
+        #     port_result = server.add_secure_port('[::]:50051', creds)
+        # else:
+        #     port_result = server.add_insecure_port('[::]:50051')
         
+        port_result = server.add_insecure_port('[::]:50051')
         print(f"✅ 포트 바인딩 결과: {port_result}")
         
         print("🚀 AI 서버 실행 중... 포트: 50051")
