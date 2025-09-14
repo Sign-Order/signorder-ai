@@ -203,6 +203,7 @@ def serve():
         else:
             port_result = server.add_insecure_port('[::]:50051')
         
+
         print(f"✅ 포트 바인딩 결과: {port_result}")
         
         print("🚀 AI 서버 실행 중... 포트: 50051")
