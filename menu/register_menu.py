@@ -11,6 +11,8 @@ import boto3
 import urllib.parse
 
 from google.auth import default
+import unicodedata
+
 
 load_dotenv()
 mongo_db_url = os.getenv("MONGO_DB_URL")
@@ -406,7 +408,170 @@ def register_avatar_sign_language_words():
 
     print("avatar sign_language 데이터가 mongo DB에 삽입 되었습니다.")
 
-# register_avatar_sign_language_words()
+def add_video_folder_to_url(url):
+    """URL에 /video/ 폴더 경로 추가"""
+    if not url:
+        return url
+    
+    try:
+        parsed = urllib.parse.urlparse(url)
+        
+        # 이미 /video/가 포함되어 있으면 그대로 반환
+        if '/video/' in parsed.path:
+            return url
+        
+        # 경로에서 파일명 추출
+        path_parts = parsed.path.strip('/').split('/')
+        filename = path_parts[-1] if path_parts and path_parts[-1] else ''
+        
+        if filename:
+            # /video/ 폴더 추가
+            new_path = f"/video/{filename}"
+            corrected_url = f"{parsed.scheme}://{parsed.netloc}{new_path}"
+            return corrected_url
+        else:
+            return url
+            
+    except Exception as e:
+        print(f"URL 파싱 오류: {e}")
+        return url
+
+def update_avatar_sign_language_words():
+    sign_language_collection = db["avatar_sign_language"]
+
+    creds = Credentials.from_service_account_file(json_key_file, scopes=[
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive"
+    ])
+    gc = gspread.authorize(creds)
+    spreadsheet_id = os.getenv("SPREADSHEET_ID")
+
+    spreadsheet = gc.open_by_key(spreadsheet_id)
+    sheet = spreadsheet.worksheet("경진대회용 시트") 
+
+    data = sheet.get_all_records()
+
+    for row in data:
+        name = row.get("name")  # 고유 키
+        avatar_url = row.get("avatarurl")  # 시트에서 가져올 값
+        avatar_url = add_video_folder_to_url(avatar_url)
+
+        if name and avatar_url:
+            sign_language_collection.update_one(
+                {"name": name},                 # name 기준으로 찾기
+                {"$set": {"avatarurl": avatar_url}},  # avatarUrl만 갱신
+                upsert=False                     # 없으면 새로 추가하지 않음
+            )
+
+    print("기존 sign_language 데이터의 avatarUrl이 name 기준으로 업데이트 되었습니다.")
+
+update_avatar_sign_language_words()
+
+
+
+
+def encode_avatar_sign_language_words():
+    import unicodedata
+    import re
+    import time
+    
+    creds = Credentials.from_service_account_file(json_key_file, scopes=[
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive"
+    ])
+    gc = gspread.authorize(creds)
+    spreadsheet_id = os.getenv("SPREADSHEET_ID")
+
+    spreadsheet = gc.open_by_key(spreadsheet_id)
+    sheet = spreadsheet.worksheet("경진대회용 시트") 
+
+    # 모든 데이터와 헤더 정보 가져오기
+    all_values = sheet.get_all_values()
+    headers = all_values[0] if all_values else []
+    
+    # name 컬럼의 인덱스 찾기
+    name_col_index = None
+    for i, header in enumerate(headers):
+        if header.lower() == 'name':
+            name_col_index = i
+            break
+    
+    if name_col_index is None:
+        print("name 컬럼을 찾을 수 없습니다.")
+        return
+    
+    # name 컬럼 문자 (A, B, C, ...)
+    name_col_letter = chr(ord('A') + name_col_index)
+    
+    print(f"name 컬럼 위치: {name_col_letter}열")
+    
+    data = sheet.get_all_records()
+    
+    # 배치 업데이트를 위한 데이터 준비
+    batch_updates = []
+    updated_count = 0
+
+    for row_idx, row in enumerate(data):
+        name = row.get("name")
+
+        if name and str(name).strip():  # 빈 값이 아닌 경우만
+            original_name = str(name)
+            
+            # Unicode 정규화 및 정제
+            normalized_name = unicodedata.normalize("NFC", original_name)
+            normalized_name = normalized_name.strip()
+            normalized_name = re.sub(r'\s+', ' ', normalized_name)  # 연속 공백 제거
+            
+            # 원본과 다른 경우만 배치에 추가
+            if original_name != normalized_name:
+                actual_row = row_idx + 2
+                cell_range = f"{name_col_letter}{actual_row}"
+                
+                batch_updates.append({
+                    'range': cell_range,
+                    'values': [[normalized_name]]
+                })
+                
+                print(f"행 {actual_row} 예정: '{original_name}' → '{normalized_name}'")
+                updated_count += 1
+
+    # 배치 업데이트 실행 (한 번에 최대 100개씩)
+    batch_size = 50  # 안전한 배치 크기
+    total_batches = (len(batch_updates) + batch_size - 1) // batch_size
+    
+    for i in range(0, len(batch_updates), batch_size):
+        current_batch = batch_updates[i:i + batch_size]
+        batch_num = (i // batch_size) + 1
+        
+        try:
+            print(f"\n배치 {batch_num}/{total_batches} 처리 중... ({len(current_batch)}개 항목)")
+            
+            # 배치 업데이트 실행
+            sheet.batch_update(current_batch)
+            
+            print(f"배치 {batch_num} 완료!")
+            
+            # API 제한을 피하기 위해 잠시 대기 (마지막 배치가 아닐 때만)
+            if i + batch_size < len(batch_updates):
+                print("API 제한 방지를 위해 3초 대기...")
+                time.sleep(3)
+                
+        except Exception as e:
+            print(f"배치 {batch_num} 업데이트 실패: {e}")
+            
+            # 배치 실패 시 개별 업데이트로 fallback
+            print("개별 업데이트로 재시도...")
+            for update_data in current_batch:
+                try:
+                    sheet.update(update_data['range'], update_data['values'])
+                    time.sleep(1)  # 개별 업데이트 시 더 긴 대기
+                except Exception as individual_error:
+                    print(f"개별 업데이트 실패 {update_data['range']}: {individual_error}")
+
+    print(f"\n경진대회용 시트 name 인코딩 완료 - 총 {updated_count}개 행 처리됨")
+
+# encode_avatar_sign_language_words()
+
 
 # def reregister_sign_language_urls():
 #     creds = Credentials.from_service_account_file(json_key_file, scopes=[
